@@ -1,7 +1,8 @@
-import { Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { Menu, X, Pill } from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
+import { Menu, X, Pill, UserCheck, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 const links = [
@@ -27,7 +28,26 @@ export function Brand({ className }: { className?: string }) {
 }
 
 export function Navbar() {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [userSession, setUserSession] = useState<{ name: string; email: string; role?: string } | null>(null);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("pharmamind_user_session");
+      if (stored) {
+        setUserSession(JSON.parse(stored));
+      }
+    } catch {
+      setUserSession(null);
+    }
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("pharmamind_user_session");
+    setUserSession(null);
+    navigate({ to: "/login" });
+  };
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/70 bg-background/85 backdrop-blur">
@@ -49,12 +69,32 @@ export function Navbar() {
         </nav>
 
         <div className="hidden items-center gap-2 lg:flex">
-          <Button asChild variant="ghost">
-            <Link to="/login">Login</Link>
-          </Button>
-          <Button asChild>
-            <Link to="/signup">Sign Up</Link>
-          </Button>
+          {userSession ? (
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-teal/30 bg-teal-soft/80 px-3 py-1 text-xs font-semibold text-accent-foreground">
+                <UserCheck className="h-3.5 w-3.5 text-teal" />
+                {userSession.name}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                className="h-8 gap-1 text-xs text-muted-foreground hover:text-destructive"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                Sign Out
+              </Button>
+            </div>
+          ) : (
+            <>
+              <Button asChild variant="ghost">
+                <Link to="/login">Login</Link>
+              </Button>
+              <Button asChild>
+                <Link to="/signup">Sign Up</Link>
+              </Button>
+            </>
+          )}
         </div>
 
         <button
@@ -83,12 +123,20 @@ export function Navbar() {
               </Link>
             ))}
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <Button asChild variant="outline" onClick={() => setOpen(false)}>
-                <Link to="/login">Login</Link>
-              </Button>
-              <Button asChild onClick={() => setOpen(false)}>
-                <Link to="/signup">Sign Up</Link>
-              </Button>
+              {userSession ? (
+                <Button variant="outline" size="sm" onClick={handleLogout} className="col-span-2">
+                  Sign Out ({userSession.name})
+                </Button>
+              ) : (
+                <>
+                  <Button asChild variant="outline" onClick={() => setOpen(false)}>
+                    <Link to="/login">Login</Link>
+                  </Button>
+                  <Button asChild onClick={() => setOpen(false)}>
+                    <Link to="/signup">Sign Up</Link>
+                  </Button>
+                </>
+              )}
             </div>
           </nav>
         </div>
