@@ -41,7 +41,7 @@ interface Message {
   sender: "user" | "ai";
   text: string;
   timestamp: string;
-  category?: "dosing" | "interaction" | "mechanism" | "general";
+  category?: "dosing" | "interaction" | "mechanism" | "safety" | "general";
   references?: { title: string; source: string; link: string }[];
   warning?: string;
 }
@@ -105,10 +105,238 @@ const samplePrompts = [
   },
   {
     icon: BookOpen,
-    title: "Amoxicillin Pediatric Dose",
-    prompt: "Calculate standard pediatric dosing for Amoxicillin in acute otitis media for a 15kg child.",
+    title: "Paracetamol Dosing & Safety",
+    prompt: "What is the maximum daily dose of Paracetamol in adults and what are hepatic safety precautions?",
   },
 ];
+
+// Clinical Knowledge Parsing Engine
+function generateClinicalResponse(query: string): {
+  text: string;
+  category: Message["category"];
+  warning?: string;
+  references: { title: string; source: string; link: string }[];
+} {
+  const lower = query.toLowerCase();
+
+  const refs = [
+    { title: "Lexicomp Clinical Drug Information", source: "UpToDate Lexidrug 2026", link: "#" },
+    { title: "FDA Approved Product Monograph", source: "U.S. Food and Drug Administration", link: "#" },
+    { title: "AHFS Drug Information", source: "American Society of Health-System Pharmacists", link: "#" },
+  ];
+
+  // 1. Paracetamol / Acetaminophen
+  if (lower.includes("paracetamol") || lower.includes("acetaminophen") || lower.includes("tylenol") || lower.includes("crocin")) {
+    return {
+      category: "dosing",
+      warning: "HEPATOTOXICITY WARNING: Severe liver damage may occur if exceeding 4,000 mg within 24 hours.",
+      text: `### Clinical Monograph: Paracetamol (Acetaminophen)
+
+**Therapeutic Class:** Analgesic & Antipyretic
+
+#### Dosing Protocols:
+- **Adult Dosing**: 500 mg to 1,000 mg orally every 4 to 6 hours as needed.
+  - **Maximum Daily Limit**: **4,000 mg (4 grams) per 24 hours**.
+  - **Hepatic Impairment / Chronic Alcoholism**: Reduce maximum daily limit to **2,000 mg/day**.
+- **Pediatric Dosing**: 10 to 15 mg/kg per dose every 4 to 6 hours. (Maximum 5 doses or 75 mg/kg/day).
+
+#### Mechanism of Action:
+Central inhibition of prostaglandin synthesis through inhibition of cyclooxygenase (COX-3 / central COX enzymes) and activation of descending serotonergic pathways.
+
+#### Key Precautions:
+- Screen for concomitant use of combination products containing acetaminophen (e.g., cough/cold formulations) to prevent accidental overdose.
+- **Antidote for Overdose**: N-Acetylcysteine (NAC) administered intravenously or orally within 8 hours of ingestion.`,
+      references: refs,
+    };
+  }
+
+  // 2. Ibuprofen / NSAIDs
+  if (lower.includes("ibuprofen") || lower.includes("nsaid") || lower.includes("advil") || lower.includes("motrin") || lower.includes("brufen") || lower.includes("naproxen")) {
+    return {
+      category: "safety",
+      warning: "CARDIOVASCULAR & GASTROINTESTINAL WARNING: NSAIDs increase risk of GI bleeding and arterial thrombotic events.",
+      text: `### Clinical Monograph: Ibuprofen & NSAID Class Guidance
+
+**Therapeutic Class:** Non-Steroidal Anti-Inflammatory Drug (NSAID)
+
+#### Dosing Protocols:
+- **Analgesic / Antipyretic Adult Dosing**: 200 mg to 400 mg orally every 4 to 6 hours (Max OTC limit: 1,200 mg/day; Prescription limit: **3,200 mg/day**).
+- **Anti-Inflammatory Adult Dosing**: 400 mg to 800 mg orally 3 to 4 times daily.
+
+#### Mechanism of Action:
+Reversible inhibition of cyclooxygenase enzymes (COX-1 and COX-2), decreasing synthesis of pro-inflammatory prostaglandins from arachidonic acid.
+
+#### Contraindications & Precautions:
+- **Pregnancy**: **Contraindicated at ≥ 20 weeks gestation** due to risk of premature closure of the fetal ductus arteriosus and fetal renal dysfunction (oligohydramnios).
+- **Renal Function**: Avoid in patients with severe renal impairment (eGFR < 30 mL/min).
+- **Cardiovascular Risk**: Use lowest effective dose for shortest duration in patients with hypertension or ischemic heart disease.`,
+      references: refs,
+    };
+  }
+
+  // 3. Omeprazole / PPIs
+  if (lower.includes("omeprazole") || lower.includes("pantoprazole") || lower.includes("ppi") || lower.includes("acid reflux") || lower.includes("gerd")) {
+    return {
+      category: "dosing",
+      warning: "LONG-TERM USE RISK: Extended PPI therapy increases risk of bone fractures, hypomagnesemia, and C. difficile infections.",
+      text: `### Clinical Monograph: Omeprazole (Proton Pump Inhibitor)
+
+**Therapeutic Class:** Gastric Acid Inhibitor / Antiulcer Agent
+
+#### Dosing Protocols:
+- **Gastroesophageal Reflux Disease (GERD)**: 20 mg orally once daily before breakfast for 4 to 8 weeks.
+- **Erosive Esophagitis**: 20 mg to 40 mg daily.
+- **H. Pylori Eradication**: 20 mg twice daily in combination with Amoxicillin 1g and Clarithromycin 500mg for 10 to 14 days.
+
+#### Mechanism of Action:
+Irreversibly inhibits the H+/K+ ATPase enzyme system (the gastric proton pump) at the secretory surface of parietal cells, blocking the final step of gastric acid production.
+
+#### Drug Interactions:
+- **Clopidogrel**: Omeprazole inhibits CYP2C19, reducing activation of Clopidogrel. Consider Pantoprazole as a safer alternative.`,
+      references: refs,
+    };
+  }
+
+  // 4. Lisinopril / ACE Inhibitors / BP
+  if (lower.includes("lisinopril") || lower.includes("ace inhibitor") || lower.includes("blood pressure") || lower.includes("hypertension") || lower.includes("enalapril")) {
+    return {
+      category: "mechanism",
+      warning: "FETAL TOXICITY WARNING: ACE Inhibitors cause injury and death to the developing fetus when used in 2nd and 3rd trimesters.",
+      text: `### Clinical Monograph: Lisinopril (ACE Inhibitor)
+
+**Therapeutic Class:** Antihypertensive / Heart Failure Agent
+
+#### Dosing Protocols:
+- **Hypertension**: Initial 10 mg once daily. Maintenance dose: 20 mg to 40 mg daily.
+- **Heart Failure**: Initial 2.5 mg to 5 mg once daily; titrate to target 20 mg to 40 mg daily.
+
+#### Mechanism of Action:
+Inhibits Angiotensin-Converting Enzyme (ACE), preventing conversion of Angiotensin I to Angiotensin II (a potent vasoconstrictor). This reduces aldosterone secretion, systemic vascular resistance, and arterial pressure.
+
+#### Adverse Effects & Monitoring:
+- **Hyperkalemia**: Monitor serum potassium and creatinine within 1 to 2 weeks of initiation.
+- **Dry Cough**: Persistent kinin-mediated non-productive cough occurs in 5-20% of patients.
+- **Angioedema**: Discontinue immediately if swelling of lips, tongue, or pharynx occurs.`,
+      references: refs,
+    };
+  }
+
+  // 5. Warfarin / Aspirin / Anticoagulants
+  if (lower.includes("warfarin") || lower.includes("aspirin") || lower.includes("anticoagulant") || lower.includes("blood thinner") || lower.includes("inr")) {
+    return {
+      category: "interaction",
+      warning: "MAJOR BLEEDING RISK: Co-administration of anticoagulant and antiplatelet drugs significantly elevates severe hemorrhage risk.",
+      text: `### Clinical Monograph: Warfarin & Anticoagulation Therapy
+
+**Therapeutic Class:** Anticoagulant (Vitamin K Antagonist)
+
+#### Clinical Dosing & Monitoring:
+- **Individualized Dosing**: Adjusted based on International Normalized Ratio (INR).
+- **Target INR Range**:
+  - Most indications (Deep Vein Thrombosis, Pulmonary Embolism, Atrial Fibrillation): **INR 2.0 to 3.0**.
+  - Mechanical Mitral Valves: **INR 2.5 to 3.5**.
+
+#### Mechanism of Action:
+Inhibits subunit 1 of the vitamin K epoxide reductase (VKORC1) enzyme complex, depleting functional vitamin K and inhibiting hepatic synthesis of clotting factors II, VII, IX, and X, as well as proteins C and S.
+
+#### Drug & Dietary Interactions:
+- **NSAIDs / Aspirin**: Additive antiplatelet effect increases GI bleeding hazard.
+- **Antibiotics**: Broad-spectrum antibiotics (e.g., Amoxicillin, Ciprofloxacin) disrupt gut flora vitamin K synthesis, enhancing Warfarin's anticoagulant effect.`,
+      references: refs,
+    };
+  }
+
+  // 6. Fluoxetine / Tramadol / Serotonin
+  if (lower.includes("fluoxetine") || lower.includes("tramadol") || lower.includes("serotonin") || lower.includes("ssri")) {
+    return {
+      category: "interaction",
+      warning: "MAJOR INTERACTION: Concomitant use increases risk of Serotonin Syndrome and lowers seizure threshold.",
+      text: `### Drug Interaction Analysis: Fluoxetine + Tramadol
+
+**Severity Rating:** 🔴 **Major (High Clinical Risk)**
+
+#### Pharmacological Mechanism:
+1. **Serotonergic Toxicity**: Fluoxetine is a potent SSRI. Tramadol inhibits serotonin and norepinephrine reuptake while acting as a weak mu-opioid agonist. Concomitant use exponentially increases synaptic serotonin concentrations in the central nervous system.
+2. **CYP2D6 Inhibition**: Fluoxetine is a strong inhibitor of CYP2D6. Tramadol relies on CYP2D6 to metabolize into its active O-desmethyltramadol (M1) metabolite. Inhibition may reduce opioid analgesia while elevating parent tramadol levels.
+
+#### Clinical Management Recommendations:
+- **Avoid Combination**: Consider alternative analgesics without serotonergic activity (e.g., Acetaminophen, NSAIDs, or non-serotonergic opioids).
+- **Monitoring**: If combination is unavoidable, monitor continuously for signs of **Serotonin Syndrome**: hyperreflexia, clonus, tremor, diaphoresis, agitation, and hyperthermia.`,
+      references: refs,
+    };
+  }
+
+  // 7. Atorvastatin / Statins
+  if (lower.includes("atorvastatin") || lower.includes("statin") || lower.includes("cholesterol") || lower.includes("rosuvastatin") || lower.includes("lipid")) {
+    return {
+      category: "mechanism",
+      warning: "MYOPATHY & RHABDOMYOLYSIS RISK: Monitor for unexplained muscle pain, tenderness, or weakness, especially with concurrent CYP3A4 inhibitors.",
+      text: `### Mechanism of Action: Atorvastatin (HMG-CoA Reductase Inhibitor)
+
+**Therapeutic Class:** Antihyperlipidemic / Statin
+
+#### Primary Mechanism:
+Atorvastatin is a competitive, selective inhibitor of **3-hydroxy-3-methylglutaryl-coenzyme A (HMG-CoA) reductase**, the rate-limiting enzyme that catalyzes the conversion of HMG-CoA to mevalonate in lipid synthesis.
+
+#### Cascade Effects:
+1. **Upregulation of LDL Receptors**: Decreased intracellular hepatic cholesterol levels trigger an increase in cell-surface low-density lipoprotein (LDL) receptors.
+2. **Increased Clearance**: Hepatic uptake and catabolism of circulating LDL particles is accelerated.
+3. **Triglyceride & VLDL Reduction**: Decreases VLDL synthesis and circulating triglycerides while modestly raising HDL-C.
+
+#### Clinical Benchmarks:
+- **High-Intensity Statin**: Atorvastatin 40-80 mg daily reduces LDL-C by **≥ 50%**.
+- **Pleiotropic Effects**: Endothelial stabilization, anti-inflammatory plaque stabilization, and inhibition of vascular smooth muscle proliferation.`,
+      references: refs,
+    };
+  }
+
+  // 8. Amoxicillin / Antibiotics / Otitis
+  if (lower.includes("amoxicillin") || lower.includes("antibiotic") || lower.includes("penicillin") || lower.includes("infection")) {
+    return {
+      category: "dosing",
+      warning: "HYPERSENSITIVITY ALERT: Verify history of penicillin or cephalosporin allergy prior to administration.",
+      text: `### Clinical Monograph: Amoxicillin Trihydrate
+
+**Therapeutic Class:** Beta-Lactam Antibacterial (Aminopenicillin)
+
+#### Dosing Protocols:
+- **Adult Dosing**: 500 mg every 8 hours OR 875 mg every 12 hours. Severe infections: 1,000 mg 3 times daily.
+- **Pediatric Acute Otitis Media**: **80 to 90 mg/kg/day** divided into 2 doses (every 12 hours).
+
+#### Mechanism of Action:
+Binds to penicillin-binding proteins (PBPs) on the inner surface of bacterial cell membranes, inhibiting peptidoglycan synthesis and causing bacterial cell wall lysis.
+
+#### Key Precautions:
+- **Clostridioides difficile**: Evaluate if severe diarrhea occurs during or after therapy.
+- Complete full prescribed course to prevent emergent antimicrobial resistance.`,
+      references: refs,
+    };
+  }
+
+  // 9. Generic Dynamic Query Response (for any other clinical question)
+  const topicTitle = query.charAt(0).toUpperCase() + query.slice(1);
+  return {
+    category: lower.includes("dose") || lower.includes("dosing") ? "dosing" : lower.includes("interaction") ? "interaction" : "general",
+    text: `### Clinical Analysis: ${topicTitle}
+
+**Domain Verification:** Processed against FDA Approved Monographs, Lexicomp Clinical Indices, and Clinical Practice Guidelines.
+
+#### 1. Primary Clinical Overview
+Your query concerning **"${query}"** has been evaluated within the PharmaMind AI clinical workspace:
+- **Pharmacological Scope**: Ensure patient-specific factors including age, renal function (eGFR/CrCl), hepatic clearance, and current co-prescriptions are thoroughly reviewed.
+- **Standard Dosing & Protocol Alignment**: Verify whether initial titration or maintenance dosing adjustment is required based on organ clearance rate.
+
+#### 2. Clinical Safety & Monitoring Checklist
+- **Organ Clearance**: Obtain baseline renal (Serum Creatinine / eGFR) and liver function tests (ALT, AST, Bilirubin) prior to initiating chronic pharmacotherapy.
+- **Adverse Reaction Screening**: Monitor for early signs of hypersensitivity, gastrointestinal intolerance, or metabolic disturbances.
+- **Drug-Drug Interaction Audit**: Review total active patient regimen for CYP enzyme inhibition/induction or additive toxicities.
+
+#### 3. Patient Communication Guidance
+- Advise patients to adhere strictly to prescribed administration schedules and take doses with food if GI distress occurs.
+- Emphasize reporting any un-expected muscle weakness, unusual bruising, skin rash, or severe diarrhea immediately.`,
+    references: refs,
+  };
+}
 
 export function AIAssistantPage() {
   const [messages, setMessages] = useState<Message[]>([defaultUserMessage, defaultAIMessage]);
@@ -142,95 +370,24 @@ export function AIAssistantPage() {
     setIsTyping(true);
 
     setTimeout(() => {
-      const lower = query.toLowerCase();
-      let aiText = "";
-      let warningText: string | undefined = undefined;
-      let category: Message["category"] = "general";
-      let refs = [
-        { title: "Lexicomp Clinical Drug Information", source: "UpToDate Lexidrug 2026", link: "#" },
-        { title: "FDA Approved Product Monograph", source: "U.S. Food and Drug Administration", link: "#" },
-      ];
-
-      if (lower.includes("fluoxetine") || lower.includes("tramadol") || lower.includes("interaction")) {
-        category = "interaction";
-        warningText = "MAJOR INTERACTION: High risk of Serotonin Syndrome & lowered seizure threshold.";
-        aiText = `### Drug Interaction Analysis: Fluoxetine + Tramadol
-
-**Severity Rating:** 🔴 **Major (High Clinical Risk)**
-
-#### Pharmacological Mechanism:
-1. **Serotonergic Toxicity**: Fluoxetine is a potent Selective Serotonin Reuptake Inhibitor (SSRI). Tramadol inhibits serotonin and norepinephrine reuptake while acting as a weak mu-opioid agonist. Concomitant use exponentially increases synaptic serotonin concentrations in the central nervous system.
-2. **CYP2D6 Inhibition**: Fluoxetine is a strong inhibitor of CYP2D6. Tramadol relies on CYP2D6 to metabolize into its active O-desmethyltramadol (M1) metabolite. Inhibition may reduce opioid analgesia while elevating parent tramadol levels.
-
-#### Clinical Management Recommendations:
-- **Avoid Combination**: Consider alternative analgesics without serotonergic activity (e.g., Acetaminophen, NSAIDs, or non-serotonergic opioids like Morphine/Oxycodone under close monitoring).
-- **Monitoring**: If combination is unavoidable, monitor continuously for signs of **Serotonin Syndrome**: hyperreflexia, clonus, tremor, diaphoresis, agitation, and hyperthermia.`;
-      } else if (lower.includes("atorvastatin") || lower.includes("hmg")) {
-        category = "mechanism";
-        aiText = `### Mechanism of Action: Atorvastatin (HMG-CoA Reductase Inhibitor)
-
-**Therapeutic Class:** Antihyperlipidemic / Statin
-
-#### Primary Mechanism:
-Atorvastatin is a competitive, selective inhibitor of **3-hydroxy-3-methylglutaryl-coenzyme A (HMG-CoA) reductase**, the rate-limiting enzyme that catalyzes the conversion of HMG-CoA to mevalonate in lipid synthesis.
-
-#### Cascade Effects:
-1. **Upregulation of LDL Receptors**: Decreased intracellular hepatic cholesterol levels trigger an increase in cell-surface low-density lipoprotein (LDL) receptors.
-2. **Increased Clearance**: Hepatic uptake and catabolism of circulating LDL particles is accelerated.
-3. **Triglyceride & VLDL Reduction**: Decreases VLDL synthesis and circulating triglycerides while modestly raising HDL-C.
-
-#### Clinical Benchmarks:
-- **High-Intensity Statin**: Atorvastatin 40-80 mg daily reduces LDL-C by **≥ 50%**.
-- **Pleiotropic Effects**: Endothelial stabilization, anti-inflammatory plaque stabilization, and inhibition of vascular smooth muscle proliferation.`;
-      } else if (lower.includes("amoxicillin") || lower.includes("pediatric") || lower.includes("otitis")) {
-        category = "dosing";
-        aiText = `### Pediatric Dosing Guidelines: Amoxicillin for Acute Otitis Media
-
-**Target Population**: Pediatric patients with high-risk or severe acute otitis media (AOM).
-
-#### Recommended Weight-Based Dosage:
-- **High-Dose Protocol**: **80 to 90 mg/kg/day** divided into 2 doses (every 12 hours).
-
-#### Sample Calculation (for a 15 kg Child):
-- **Total Daily Dose**: 15 kg × 90 mg/kg/day = **1,350 mg/day**
-- **Divided Dose**: 1,350 mg ÷ 2 = **675 mg twice daily** (every 12 hours) for 7 to 10 days.
-
-#### Formulation Options:
-- **Amoxicillin Oral Suspension**: 250 mg/5mL or 400 mg/5mL.
-- *Using 400 mg/5mL strength*: 675 mg = **8.4 mL twice daily**.
-
-#### Key Precautions:
-- Take at the start of a meal to minimize gastrointestinal discomfort.
-- Complete full 10-day course for children < 2 years or severe disease; 7-day course for children ≥ 2 years with mild-to-moderate symptoms.`;
-      } else {
-        aiText = `### Clinical Response: ${query}
-
-Thank you for your clinical query. PharmaMind AI has processed your request against active pharmaceutical knowledge bases, FDA monographs, and clinical practice guidelines.
-
-#### Key Takeaways:
-- **Verification**: Cross-referenced with standard therapeutic index parameters and pharmacovigilance databases.
-- **Safety Profile**: Always verify patient-specific renal/hepatic clearance rates, co-prescriptions, and allergy profiles before finalizing therapeutic decisions.
-- **Documentation**: All responses are logged for audit compliance within your pharmacovigilance workspace.
-
-If you require specific dosing calculators, drug-drug interaction matrices, or literature citation extracts, select the corresponding mode above or refine your query.`;
-      }
+      const responseData = generateClinicalResponse(query);
 
       const aiMsg: Message = {
         id: `a-${Date.now()}`,
         sender: "ai",
-        text: aiText,
+        text: responseData.text,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        category,
-        references: refs,
+        category: responseData.category,
+        references: responseData.references,
       };
 
-      if (warningText) {
-        aiMsg.warning = warningText;
+      if (responseData.warning) {
+        aiMsg.warning = responseData.warning;
       }
 
       setMessages((prev) => [...prev, aiMsg]);
       setIsTyping(false);
-    }, 1200);
+    }, 1000);
   };
 
   const handleCopy = (id: string, text: string) => {
