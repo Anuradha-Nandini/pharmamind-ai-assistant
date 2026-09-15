@@ -377,7 +377,7 @@ export function AIAssistantPage() {
         sender: "ai",
         text: responseData.text,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        category: responseData.category,
+        category: responseData.category || "general",
         references: responseData.references,
       };
 
