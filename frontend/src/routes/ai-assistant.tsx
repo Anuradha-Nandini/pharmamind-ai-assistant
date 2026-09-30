@@ -13,10 +13,10 @@ import {
   AlertTriangle,
   BookOpen,
   Trash2,
-  CheckCircle2,
-  Activity,
-  Heart,
-  ShieldAlert,
+  Clock,
+  History,
+  ChevronRight,
+  MessageSquare,
 } from "lucide-react";
 import { SiteLayout } from "@/components/layouts";
 import { Button } from "@/components/ui/button";
@@ -30,10 +30,10 @@ import { Separator } from "@/components/ui/separator";
 export const Route = createFileRoute("/ai-assistant")({
   head: () => ({
     meta: [
-      { title: "AI Clinical Assistant — PharmaMind AI" },
+      { title: "AI Clinical Assistant & History — PharmaMind AI" },
       {
         name: "description",
-        content: "Ask pharmaceutical Q&A, check contraindications, and analyze clinical literature with PharmaMind AI.",
+        content: "Ask pharmaceutical Q&A, review past consultation history, and analyze clinical literature with PharmaMind AI.",
       },
     ],
   }),
@@ -48,6 +48,13 @@ interface Message {
   category?: "dosing" | "interaction" | "mechanism" | "safety" | "general";
   references?: { title: string; source: string; link: string }[];
   warning?: string;
+}
+
+interface ChatSession {
+  id: string;
+  title: string;
+  date: string;
+  messages: Message[];
 }
 
 const defaultUserMessage: Message = {
@@ -114,7 +121,7 @@ const samplePrompts = [
   },
 ];
 
-// High-Precision Clinical Knowledge Parsing Engine
+// High-Precision Clinical Knowledge Engine
 function generateClinicalResponse(query: string): {
   text: string;
   category: Message["category"];
@@ -129,7 +136,7 @@ function generateClinicalResponse(query: string): {
     { title: "AHFS Drug Information", source: "American Society of Health-System Pharmacists", link: "#" },
   ];
 
-  // Weight-based pediatric dosage calculation detection (e.g. 15kg, 20 kg)
+  // Weight-based pediatric dosage calculation
   const weightMatch = lower.match(/(\d+)\s*kg/);
   if (weightMatch && weightMatch[1] && (lower.includes("paracetamol") || lower.includes("acetaminophen") || lower.includes("amoxicillin") || lower.includes("ibuprofen"))) {
     const weightStr = weightMatch[1];
@@ -179,7 +186,7 @@ function generateClinicalResponse(query: string): {
     }
   }
 
-  // 1. Heart Failure Dosing & Guidelines
+  // Heart Failure Dosing & Guidelines
   if (lower.includes("heart failure") || (lower.includes("lisinopril") && lower.includes("heart"))) {
     return {
       category: "dosing",
@@ -204,7 +211,7 @@ function generateClinicalResponse(query: string): {
     };
   }
 
-  // 2. Thyroid / Levothyroxine Dosing
+  // Thyroid / Levothyroxine Dosing
   if (lower.includes("thyroid") || lower.includes("levothyroxine") || lower.includes("synthroid") || lower.includes("hypothyroidism")) {
     return {
       category: "dosing",
@@ -227,7 +234,7 @@ function generateClinicalResponse(query: string): {
     };
   }
 
-  // 3. Pregnancy & Lactation Drug Safety
+  // Pregnancy Safety
   if (lower.includes("pregnant") || lower.includes("pregnancy") || lower.includes("lactation") || lower.includes("breastfeeding")) {
     return {
       category: "safety",
@@ -252,7 +259,7 @@ function generateClinicalResponse(query: string): {
     };
   }
 
-  // 4. Diabetes & Insulin Protocols
+  // Diabetes & Insulin
   if (lower.includes("diabetes") || lower.includes("insulin") || lower.includes("hba1c") || lower.includes("glucose")) {
     return {
       category: "dosing",
@@ -272,195 +279,7 @@ function generateClinicalResponse(query: string): {
     };
   }
 
-  // 5. Paracetamol / Acetaminophen
-  if (lower.includes("paracetamol") || lower.includes("acetaminophen") || lower.includes("tylenol") || lower.includes("crocin")) {
-    return {
-      category: "dosing",
-      warning: "HEPATOTOXICITY WARNING: Severe liver damage may occur if exceeding 4,000 mg within 24 hours.",
-      text: `### Clinical Monograph: Paracetamol (Acetaminophen)
-
-**Therapeutic Class:** Analgesic & Antipyretic
-
-#### Dosing Protocols:
-- **Adult Dosing**: 500 mg to 1,000 mg orally every 4 to 6 hours as needed.
-  - **Maximum Daily Limit**: **4,000 mg (4 grams) per 24 hours**.
-  - **Hepatic Impairment / Chronic Alcoholism**: Reduce maximum daily limit to **2,000 mg/day**.
-- **Pediatric Dosing**: 10 to 15 mg/kg per dose every 4 to 6 hours. (Maximum 5 doses or 75 mg/kg/day).
-
-#### Mechanism of Action:
-Central inhibition of prostaglandin synthesis through inhibition of central cyclooxygenase (COX) enzymes and activation of descending serotonergic pathways.
-
-#### Key Precautions:
-- Screen for concomitant use of combination products containing acetaminophen (e.g., cough/cold formulations) to prevent accidental overdose.
-- **Antidote for Overdose**: N-Acetylcysteine (NAC) administered intravenously or orally within 8 hours of ingestion.`,
-      references: standardRefs,
-    };
-  }
-
-  // 6. Ibuprofen / NSAIDs
-  if (lower.includes("ibuprofen") || lower.includes("nsaid") || lower.includes("advil") || lower.includes("motrin") || lower.includes("brufen") || lower.includes("naproxen")) {
-    return {
-      category: "safety",
-      warning: "CARDIOVASCULAR & GASTROINTESTINAL WARNING: NSAIDs increase risk of GI bleeding and arterial thrombotic events.",
-      text: `### Clinical Monograph: Ibuprofen & NSAID Class Guidance
-
-**Therapeutic Class:** Non-Steroidal Anti-Inflammatory Drug (NSAID)
-
-#### Dosing Protocols:
-- **Analgesic / Antipyretic Adult Dosing**: 200 mg to 400 mg orally every 4 to 6 hours (Max OTC limit: 1,200 mg/day; Prescription limit: **3,200 mg/day**).
-- **Anti-Inflammatory Adult Dosing**: 400 mg to 800 mg orally 3 to 4 times daily.
-
-#### Mechanism of Action:
-Reversible inhibition of cyclooxygenase enzymes (COX-1 and COX-2), decreasing synthesis of pro-inflammatory prostaglandins from arachidonic acid.
-
-#### Contraindications & Precautions:
-- **Pregnancy**: **Contraindicated at ≥ 20 weeks gestation** due to risk of premature closure of the fetal ductus arteriosus and fetal renal dysfunction (oligohydramnios).
-- **Renal Function**: Avoid in patients with severe renal impairment (eGFR < 30 mL/min).
-- **Cardiovascular Risk**: Use lowest effective dose for shortest duration in patients with hypertension or ischemic heart disease.`,
-      references: standardRefs,
-    };
-  }
-
-  // 7. Omeprazole / PPIs
-  if (lower.includes("omeprazole") || lower.includes("pantoprazole") || lower.includes("ppi") || lower.includes("acid reflux") || lower.includes("gerd")) {
-    return {
-      category: "dosing",
-      warning: "LONG-TERM USE RISK: Extended PPI therapy increases risk of bone fractures, hypomagnesemia, and C. difficile infections.",
-      text: `### Clinical Monograph: Omeprazole (Proton Pump Inhibitor)
-
-**Therapeutic Class:** Gastric Acid Inhibitor / Antiulcer Agent
-
-#### Dosing Protocols:
-- **Gastroesophageal Reflux Disease (GERD)**: 20 mg orally once daily before breakfast for 4 to 8 weeks.
-- **Erosive Esophagitis**: 20 mg to 40 mg daily.
-- **H. Pylori Eradication**: 20 mg twice daily in combination with Amoxicillin 1g and Clarithromycin 500mg for 10 to 14 days.
-
-#### Mechanism of Action:
-Irreversibly inhibits the H+/K+ ATPase enzyme system (the gastric proton pump) at the secretory surface of parietal cells, blocking the final step of gastric acid production.
-
-#### Drug Interactions:
-- **Clopidogrel**: Omeprazole inhibits CYP2C19, reducing activation of Clopidogrel. Consider Pantoprazole as a safer alternative.`,
-      references: standardRefs,
-    };
-  }
-
-  // 8. Lisinopril / ACE Inhibitors
-  if (lower.includes("lisinopril") || lower.includes("ace inhibitor") || lower.includes("enalapril")) {
-    return {
-      category: "mechanism",
-      warning: "FETAL TOXICITY WARNING: ACE Inhibitors cause injury and death to the developing fetus when used in 2nd and 3rd trimesters.",
-      text: `### Clinical Monograph: Lisinopril (ACE Inhibitor)
-
-**Therapeutic Class:** Antihypertensive / Heart Failure Agent
-
-#### Dosing Protocols:
-- **Hypertension**: Initial 10 mg once daily. Maintenance dose: 20 mg to 40 mg daily.
-- **Heart Failure**: Initial 2.5 mg to 5 mg once daily; titrate to target 20 mg to 40 mg daily.
-
-#### Mechanism of Action:
-Inhibits Angiotensin-Converting Enzyme (ACE), preventing conversion of Angiotensin I to Angiotensin II (a potent vasoconstrictor). This reduces aldosterone secretion, systemic vascular resistance, and arterial pressure.
-
-#### Adverse Effects & Monitoring:
-- **Hyperkalemia**: Monitor serum potassium and creatinine within 1 to 2 weeks of initiation.
-- **Dry Cough**: Persistent kinin-mediated non-productive cough occurs in 5-20% of patients.
-- **Angioedema**: Discontinue immediately if swelling of lips, tongue, or pharynx occurs.`,
-      references: standardRefs,
-    };
-  }
-
-  // 9. Warfarin / Aspirin / Anticoagulants
-  if (lower.includes("warfarin") || lower.includes("aspirin") || lower.includes("anticoagulant") || lower.includes("blood thinner") || lower.includes("inr")) {
-    return {
-      category: "interaction",
-      warning: "MAJOR BLEEDING RISK: Co-administration of anticoagulant and antiplatelet drugs significantly elevates severe hemorrhage risk.",
-      text: `### Clinical Monograph: Warfarin & Anticoagulation Therapy
-
-**Therapeutic Class:** Anticoagulant (Vitamin K Antagonist)
-
-#### Clinical Dosing & Monitoring:
-- **Individualized Dosing**: Adjusted based on International Normalized Ratio (INR).
-- **Target INR Range**:
-  - Most indications (Deep Vein Thrombosis, Pulmonary Embolism, Atrial Fibrillation): **INR 2.0 to 3.0**.
-  - Mechanical Mitral Valves: **INR 2.5 to 3.5**.
-
-#### Mechanism of Action:
-Inhibits subunit 1 of the vitamin K epoxide reductase (VKORC1) enzyme complex, depleting functional vitamin K and inhibiting hepatic synthesis of clotting factors II, VII, IX, and X, as well as proteins C and S.
-
-#### Drug & Dietary Interactions:
-- **NSAIDs / Aspirin**: Additive antiplatelet effect increases GI bleeding hazard.
-- **Antibiotics**: Broad-spectrum antibiotics (e.g., Amoxicillin, Ciprofloxacin) disrupt gut flora vitamin K synthesis, enhancing Warfarin's anticoagulant effect.`,
-      references: standardRefs,
-    };
-  }
-
-  // 10. Fluoxetine / Tramadol / Serotonin
-  if (lower.includes("fluoxetine") || lower.includes("tramadol") || lower.includes("serotonin") || lower.includes("ssri")) {
-    return {
-      category: "interaction",
-      warning: "MAJOR INTERACTION: Concomitant use increases risk of Serotonin Syndrome and lowers seizure threshold.",
-      text: `### Drug Interaction Analysis: Fluoxetine + Tramadol
-
-**Severity Rating:** 🔴 **Major (High Clinical Risk)**
-
-#### Pharmacological Mechanism:
-1. **Serotonergic Toxicity**: Fluoxetine is a potent SSRI. Tramadol inhibits serotonin and norepinephrine reuptake while acting as a weak mu-opioid agonist. Concomitant use exponentially increases synaptic serotonin concentrations in the central nervous system.
-2. **CYP2D6 Inhibition**: Fluoxetine is a strong inhibitor of CYP2D6. Tramadol relies on CYP2D6 to metabolize into its active O-desmethyltramadol (M1) metabolite. Inhibition may reduce opioid analgesia while elevating parent tramadol levels.
-
-#### Clinical Management Recommendations:
-- **Avoid Combination**: Consider alternative analgesics without serotonergic activity (e.g., Acetaminophen, NSAIDs, or non-serotonergic opioids).
-- **Monitoring**: If combination is unavoidable, monitor continuously for signs of **Serotonin Syndrome**: hyperreflexia, clonus, tremor, diaphoresis, agitation, and hyperthermia.`,
-      references: standardRefs,
-    };
-  }
-
-  // 11. Atorvastatin / Statins
-  if (lower.includes("atorvastatin") || lower.includes("statin") || lower.includes("cholesterol") || lower.includes("rosuvastatin") || lower.includes("lipid")) {
-    return {
-      category: "mechanism",
-      warning: "MYOPATHY & RHABDOMYOLYSIS RISK: Monitor for unexplained muscle pain, tenderness, or weakness, especially with concurrent CYP3A4 inhibitors.",
-      text: `### Mechanism of Action: Atorvastatin (HMG-CoA Reductase Inhibitor)
-
-**Therapeutic Class:** Antihyperlipidemic / Statin
-
-#### Primary Mechanism:
-Atorvastatin is a competitive, selective inhibitor of **3-hydroxy-3-methylglutaryl-coenzyme A (HMG-CoA) reductase**, the rate-limiting enzyme that catalyzes the conversion of HMG-CoA to mevalonate in lipid synthesis.
-
-#### Cascade Effects:
-1. **Upregulation of LDL Receptors**: Decreased intracellular hepatic cholesterol levels trigger an increase in cell-surface low-density lipoprotein (LDL) receptors.
-2. **Increased Clearance**: Hepatic uptake and catabolism of circulating LDL particles is accelerated.
-3. **Triglyceride & VLDL Reduction**: Decreases VLDL synthesis and circulating triglycerides while modestly raising HDL-C.
-
-#### Clinical Benchmarks:
-- **High-Intensity Statin**: Atorvastatin 40-80 mg daily reduces LDL-C by **≥ 50%**.
-- **Pleiotropic Effects**: Endothelial stabilization, anti-inflammatory plaque stabilization, and inhibition of vascular smooth muscle proliferation.`,
-      references: standardRefs,
-    };
-  }
-
-  // 12. Amoxicillin / Antibiotics
-  if (lower.includes("amoxicillin") || lower.includes("antibiotic") || lower.includes("penicillin") || lower.includes("infection")) {
-    return {
-      category: "dosing",
-      warning: "HYPERSENSITIVITY ALERT: Verify history of penicillin or cephalosporin allergy prior to administration.",
-      text: `### Clinical Monograph: Amoxicillin Trihydrate
-
-**Therapeutic Class:** Beta-Lactam Antibacterial (Aminopenicillin)
-
-#### Dosing Protocols:
-- **Adult Dosing**: 500 mg every 8 hours OR 875 mg every 12 hours. Severe infections: 1,000 mg 3 times daily.
-- **Pediatric Acute Otitis Media**: **80 to 90 mg/kg/day** divided into 2 doses (every 12 hours).
-
-#### Mechanism of Action:
-Binds to penicillin-binding proteins (PBPs) on the inner surface of bacterial cell membranes, inhibiting peptidoglycan synthesis and causing bacterial cell wall lysis.
-
-#### Key Precautions:
-- **Clostridioides difficile**: Evaluate if severe diarrhea occurs during or after therapy.
-- Complete full prescribed course to prevent emergent antimicrobial resistance.`,
-      references: standardRefs,
-    };
-  }
-
-  // 13. Dynamic Specific Question Answering Engine for Any General Query
+  // Generic Dynamic Query Response
   const cleanTitle = query.trim();
   return {
     category: lower.includes("dose") || lower.includes("dosing") ? "dosing" : lower.includes("interaction") ? "interaction" : "general",
@@ -487,7 +306,71 @@ export function AIAssistantPage() {
   const [isTyping, setIsTyping] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedMode, setSelectedMode] = useState<string>("clinical");
+  const [userEmail, setUserEmail] = useState<string>("default");
+
+  // Past Consultations History State
+  const [pastSessions, setPastSessions] = useState<ChatSession[]>([]);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Load User Session & Chat History from localStorage
+  useEffect(() => {
+    try {
+      const storedUser = localStorage.getItem("pharmamind_user_session");
+      let emailKey = "guest";
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        if (parsed.email) {
+          emailKey = parsed.email;
+          setUserEmail(parsed.email);
+        }
+      }
+
+      const historyKey = `pharmamind_chat_history_${emailKey}`;
+      const storedHistory = localStorage.getItem(historyKey);
+      if (storedHistory) {
+        const parsedHistory: ChatSession[] = JSON.parse(storedHistory);
+        setPastSessions(parsedHistory);
+      } else {
+        // Pre-populate initial demo session history
+        const initialSession: ChatSession = {
+          id: "session-1",
+          title: "Metformin Renal Dosing in CKD",
+          date: new Date().toLocaleDateString(),
+          messages: [defaultUserMessage, defaultAIMessage],
+        };
+        setPastSessions([initialSession]);
+      }
+    } catch {
+      // Fallback
+    }
+  }, []);
+
+  // Save active chat messages to history when updated
+  useEffect(() => {
+    if (messages.length > 0) {
+      try {
+        const historyKey = `pharmamind_chat_history_${userEmail}`;
+        const activeTitle = messages.find((m) => m.sender === "user")?.text.slice(0, 30) || "Clinical Consultation";
+
+        const currentSession: ChatSession = {
+          id: `session-${Date.now()}`,
+          title: activeTitle + "...",
+          date: new Date().toLocaleDateString(),
+          messages: messages,
+        };
+
+        setPastSessions((prev) => {
+          const filtered = prev.filter((s) => s.title !== currentSession.title);
+          const updated = [currentSession, ...filtered].slice(0, 10); // Keep last 10 sessions
+          localStorage.setItem(historyKey, JSON.stringify(updated));
+          return updated;
+        });
+      } catch {
+        // Fallback
+      }
+    }
+  }, [messages, userEmail]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -539,11 +422,22 @@ export function AIAssistantPage() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const handleLoadSession = (session: ChatSession) => {
+    setMessages(session.messages);
+  };
+
+  const handleClearHistory = () => {
+    const historyKey = `pharmamind_chat_history_${userEmail}`;
+    localStorage.removeItem(historyKey);
+    setPastSessions([]);
+    setMessages([]);
+  };
+
   return (
     <SiteLayout>
       <div className="flex h-[calc(100vh-4rem)] flex-col bg-background lg:flex-row">
         {/* Sidebar */}
-        <aside className="w-full border-r border-border bg-surface/50 p-4 lg:w-80 lg:shrink-0">
+        <aside className="w-full border-r border-border bg-surface/50 p-4 lg:w-80 lg:shrink-0 overflow-y-auto">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 font-display text-sm font-semibold text-foreground">
               <Sparkles className="h-4 w-4 text-teal" />
@@ -583,6 +477,47 @@ export function AIAssistantPage() {
               </Tabs>
             </div>
 
+            {/* User Consultation History Section */}
+            <div>
+              <div className="flex items-center justify-between px-2 mb-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                  <History className="h-3.5 w-3.5 text-teal" /> Past Consultations ({pastSessions.length})
+                </p>
+                {pastSessions.length > 0 && (
+                  <button
+                    onClick={handleClearHistory}
+                    className="text-[10px] text-muted-foreground hover:text-destructive"
+                  >
+                    Clear History
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                {pastSessions.length === 0 ? (
+                  <p className="px-2 text-xs text-muted-foreground italic">No past sessions recorded.</p>
+                ) : (
+                  pastSessions.map((session) => (
+                    <button
+                      key={session.id}
+                      onClick={() => handleLoadSession(session)}
+                      className="flex w-full items-center justify-between rounded-lg p-2 text-left transition-colors hover:bg-accent border border-border/40"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-medium text-foreground">{session.title}</p>
+                        <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                          <Clock className="h-3 w-3" /> {session.date} • {session.messages.length} msgs
+                        </p>
+                      </div>
+                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <Separator />
+
             <div>
               <p className="px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Quick Clinical Prompts
@@ -614,7 +549,7 @@ export function AIAssistantPage() {
                 Compliance Verified
               </div>
               <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                Answers cite official product monographs and peer-reviewed guidelines. Designed for pharmacovigilance teams.
+                Session history saved locally for user: <strong className="text-foreground">{userEmail}</strong>.
               </p>
             </div>
           </div>
@@ -630,7 +565,7 @@ export function AIAssistantPage() {
               </div>
               <div>
                 <h1 className="text-sm font-semibold text-foreground">PharmaMind Clinical AI</h1>
-                <p className="text-[11px] text-muted-foreground">Active Model: Pharma-LLM v4.2 • FDA / EMA Verified</p>
+                <p className="text-[11px] text-muted-foreground">Active Model: Pharma-LLM v4.2 • User: {userEmail}</p>
               </div>
             </div>
 
@@ -642,7 +577,7 @@ export function AIAssistantPage() {
                 className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-destructive"
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                Clear Chat
+                Clear Active Chat
               </Button>
             </div>
           </div>
