@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Sparkles, ArrowRight, Lock, Mail, User, UserCheck, AlertCircle, Building2 } from "lucide-react";
+import { Sparkles, ArrowRight, Lock, Mail, User, UserCheck, AlertCircle, KeyRound, ShieldCheck } from "lucide-react";
 import { SiteLayout } from "@/components/layouts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,12 +8,20 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { sendOtp, verifyOtp, signupUser } from "@/lib/api";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({
     meta: [
-      { title: "Create Account — PharmaMind AI" },
-      { name: "description", content: "Create a free PharmaMind AI workspace for AI-assisted drug information and interaction checks." },
+      { title: "Create Account & OTP Verification — PharmaMind AI" },
+      { name: "description", content: "Create a free PharmaMind AI workspace with email OTP verification." },
     ],
   }),
   component: SignupPage,
@@ -27,9 +35,15 @@ export function SignupPage() {
   const [role, setRole] = useState("Clinical Pharmacist");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
 
-  const handleSignup = (e: React.FormEvent) => {
+  // OTP Modal State
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpInput, setOtpInput] = useState("");
+  const [otpError, setOtpError] = useState("");
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [demoOtp, setDemoOtp] = useState<string | null>(null);
+
+  const handleInitialSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -48,24 +62,74 @@ export function SignupPage() {
 
     setLoading(true);
 
-    setTimeout(() => {
-      // Save new user session to localStorage
+    try {
+      const res = await signupUser(fullName.trim(), email.trim(), password, role);
+      setLoading(false);
+
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
+
+      if (res.demoOtp) {
+        setDemoOtp(res.demoOtp);
+      }
+
+      // Open OTP Verification Modal
+      setShowOtpModal(true);
+    } catch {
+      setLoading(false);
+      setShowOtpModal(true);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setOtpError("");
+
+    if (!otpInput || otpInput.trim().length !== 6) {
+      setOtpError("Please enter a valid 6-digit verification code.");
+      return;
+    }
+
+    setOtpLoading(true);
+
+    try {
+      const res = await verifyOtp(email, otpInput.trim());
+      setOtpLoading(false);
+
+      if (res.error) {
+        setOtpError(res.error);
+        return;
+      }
+
+      // Save user session to localStorage
       const userSession = {
         name: fullName,
         email: email,
         role: role,
-        token: "demo_jwt_token_" + Date.now(),
+        token: res.token || "jwt_session_" + Date.now(),
+        isVerified: true,
         loggedInAt: new Date().toISOString(),
       };
 
       localStorage.setItem("pharmamind_user_session", JSON.stringify(userSession));
-      setLoading(false);
-      setSuccess(true);
+      setShowOtpModal(false);
 
-      setTimeout(() => {
-        navigate({ to: "/ai-assistant" });
-      }, 800);
-    }, 1000);
+      // Redirect to AI Assistant
+      navigate({ to: "/ai-assistant" });
+    } catch {
+      setOtpLoading(false);
+      setOtpError("Failed to verify OTP code.");
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setOtpError("");
+    const res = await sendOtp(email);
+    if (res.demoOtp) {
+      setDemoOtp(res.demoOtp);
+    }
   };
 
   return (
@@ -78,7 +142,7 @@ export function SignupPage() {
             </div>
             <CardTitle className="mt-3 text-2xl font-bold text-foreground">Create your workspace</CardTitle>
             <CardDescription className="text-sm">
-              Free preview access for healthcare professionals & research teams.
+              Register & verify via Email 6-Digit OTP.
             </CardDescription>
           </CardHeader>
 
@@ -91,15 +155,7 @@ export function SignupPage() {
               </Alert>
             )}
 
-            {success && (
-              <Alert className="mb-4 border-teal/40 bg-teal-soft/50 text-accent-foreground">
-                <UserCheck className="h-4 w-4 text-teal" />
-                <AlertTitle>Workspace Created!</AlertTitle>
-                <AlertDescription>Setting up your clinical workspace...</AlertDescription>
-              </Alert>
-            )}
-
-            <form className="space-y-4" onSubmit={handleSignup}>
+            <form className="space-y-4" onSubmit={handleInitialSignup}>
               <div className="space-y-2">
                 <Label htmlFor="name" className="text-xs font-semibold">
                   Full Name & Credentials
@@ -171,12 +227,12 @@ export function SignupPage() {
                 </div>
               </div>
 
-              <Button type="submit" disabled={loading || success} className="h-11 w-full gap-2 text-sm font-semibold">
+              <Button type="submit" disabled={loading} className="h-11 w-full gap-2 text-sm font-semibold">
                 {loading ? (
-                  <span>Creating Workspace...</span>
+                  <span>Sending Verification Code...</span>
                 ) : (
                   <>
-                    <span>Create Account & Enter</span>
+                    <span>Create Account & Send OTP</span>
                     <ArrowRight className="h-4 w-4" />
                   </>
                 )}
@@ -192,6 +248,63 @@ export function SignupPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* 6-Digit Email OTP Verification Modal */}
+      <Dialog open={showOtpModal} onOpenChange={setShowOtpModal}>
+        <DialogContent className="sm:max-w-md p-6">
+          <DialogHeader className="text-center pb-2">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-soft text-teal">
+              <KeyRound className="h-6 w-6" />
+            </div>
+            <DialogTitle className="text-xl font-bold text-foreground mt-2">Verify Email Address</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              We sent a 6-digit verification code to <strong className="text-foreground">{email}</strong>
+            </DialogDescription>
+          </DialogHeader>
+
+          {otpError && (
+            <Alert variant="destructive" className="my-2">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{otpError}</AlertDescription>
+            </Alert>
+          )}
+
+          {demoOtp && (
+            <div className="my-2 rounded-xl border border-teal/30 bg-teal-soft/50 p-3 text-center text-xs text-accent-foreground">
+              <span className="font-semibold flex items-center justify-center gap-1">
+                <ShieldCheck className="h-4 w-4 text-teal" /> Verification OTP Generated:
+              </span>
+              <p className="mt-1 text-lg font-mono font-bold tracking-widest text-teal">{demoOtp}</p>
+            </div>
+          )}
+
+          <form onSubmit={handleVerifyOtp} className="space-y-4 mt-2">
+            <div className="space-y-2">
+              <Label htmlFor="otp" className="text-xs font-semibold">6-Digit OTP Code</Label>
+              <Input
+                id="otp"
+                maxLength={6}
+                value={otpInput}
+                onChange={(e) => setOtpInput(e.target.value)}
+                placeholder="123456"
+                className="h-12 text-center text-xl font-mono tracking-widest shadow-none"
+                required
+              />
+            </div>
+
+            <Button type="submit" disabled={otpLoading || otpInput.trim().length !== 6} className="h-11 w-full text-sm font-semibold">
+              {otpLoading ? "Verifying..." : "Verify OTP & Activate Account"}
+            </Button>
+          </form>
+
+          <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+            <span>Didn't receive code?</span>
+            <button type="button" onClick={handleResendOtp} className="font-semibold text-teal hover:underline">
+              Resend OTP Code
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </SiteLayout>
   );
 }
