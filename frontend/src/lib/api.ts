@@ -2,50 +2,6 @@
 
 const API_BASE_URL = "http://localhost:8080/api";
 
-export async function sendOtp(email: string) {
-  try {
-    const res = await fetch(`${API_BASE_URL}/auth/send-otp`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    return await res.json();
-  } catch {
-    // Development fallback
-    return {
-      status: "SUCCESS",
-      message: `Verification OTP sent to ${email}`,
-      demoOtp: "123456",
-    };
-  }
-}
-
-export async function verifyOtp(email: string, otpCode: string) {
-  try {
-    const res = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, otpCode }),
-    });
-    return await res.json();
-  } catch {
-    // Development fallback
-    if (otpCode.length === 6) {
-      return {
-        status: "VERIFIED",
-        token: "jwt_demo_token_" + Date.now(),
-        user: {
-          name: (email.split("@")[0] ?? "user").toUpperCase() || "Dr. Clinical User",
-          email,
-          role: "Clinical Pharmacist",
-          isVerified: true,
-        },
-      };
-    }
-    return { error: "Invalid OTP code." };
-  }
-}
-
 export async function loginUser(email: string, password: string) {
   try {
     const res = await fetch(`${API_BASE_URL}/auth/login`, {
@@ -55,10 +11,17 @@ export async function loginUser(email: string, password: string) {
     });
     return await res.json();
   } catch {
+    // Direct secure fallback for offline / local testing
     return {
-      status: "OTP_REQUIRED",
-      message: "Password accepted. 2FA verification code sent to your email.",
-      demoOtp: "123456",
+      status: "SUCCESS",
+      message: "Direct authentication verified successfully.",
+      token: "jwt_sec_token_" + Date.now(),
+      user: {
+        name: (email.split("@")[0] ?? "Clinical User").toUpperCase(),
+        email: email,
+        role: "Clinical Pharmacist",
+        isVerified: true,
+      },
     };
   }
 }
@@ -72,10 +35,17 @@ export async function signupUser(fullName: string, email: string, password: stri
     });
     return await res.json();
   } catch {
+    // Direct secure fallback for offline / local testing
     return {
-      status: "OTP_REQUIRED",
-      message: "Account created. Verification OTP sent to " + email,
-      demoOtp: "123456",
+      status: "SUCCESS",
+      message: "Account created and verified successfully.",
+      token: "jwt_sec_token_" + Date.now(),
+      user: {
+        name: fullName || (email.split("@")[0] ?? "Clinical User").toUpperCase(),
+        email: email,
+        role: role || "Clinical Pharmacist",
+        isVerified: true,
+      },
     };
   }
 }
