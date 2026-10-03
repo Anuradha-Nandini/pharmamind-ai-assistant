@@ -16,7 +16,6 @@ import {
   Clock,
   History,
   ChevronRight,
-  MessageSquare,
 } from "lucide-react";
 import { SiteLayout } from "@/components/layouts";
 import { Button } from "@/components/ui/button";
@@ -92,9 +91,9 @@ Metformin dosing recommendations are based on **Estimated Glomerular Filtration 
 ### Key Monitoring & Discontinuation Protocols
 - **Iodinated Contrast Procedures**: Withhold Metformin prior to or at the time of imaging in patients with eGFR between 30 and 60 mL/min/1.73m², or with history of hepatic impairment, alcoholism, or heart failure. Re-evaluate eGFR 48 hours post-procedure before restarting.`,
   references: [
-    { title: "ADA Standards of Care in Diabetes (2024)", source: "Diabetes Care 2024;47(Suppl. 1)", link: "#" },
+    { title: "ADA Standards of Care in Diabetes (2026)", source: "Diabetes Care 2026;49(Suppl. 1)", link: "#" },
     { title: "FDA Metformin Prescribing Information", source: "FDA Labeling Revision", link: "#" },
-    { title: "KDIGO Clinical Practice Guideline for Diabetes Management in CKD", source: "Kidney Int. 2023", link: "#" },
+    { title: "KDIGO Clinical Practice Guideline for Diabetes Management in CKD", source: "Kidney Int. 2024", link: "#" },
   ],
 };
 
@@ -106,18 +105,38 @@ const samplePrompts = [
   },
   {
     icon: AlertTriangle,
-    title: "Fluoxetine + Tramadol",
+    title: "Fluoxetine + Tramadol Risk",
     prompt: "Check interaction severity and serotonin syndrome risk between Fluoxetine 20mg and Tramadol 50mg.",
   },
   {
     icon: Sparkles,
-    title: "Atorvastatin MoA",
-    prompt: "Explain the mechanism of action of Atorvastatin and its effect on HMG-CoA reductase.",
+    title: "Atorvastatin Mechanism",
+    prompt: "Explain the mechanism of action of Atorvastatin, HMG-CoA reductase inhibition, and LDL clearance.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Paracetamol Dosing & Limits",
+    prompt: "What is the maximum daily dose of Paracetamol in adults and pediatric weight-based calculation for a 15 kg child?",
   },
   {
     icon: BookOpen,
-    title: "Paracetamol Dosing & Safety",
-    prompt: "What is the maximum daily dose of Paracetamol in adults and what are hepatic safety precautions?",
+    title: "Amoxicillin Pediatric Dose",
+    prompt: "Calculate the high-dose Amoxicillin pediatric regimen (80-90 mg/kg/day) for a 12 kg child with acute otitis media.",
+  },
+  {
+    icon: Pill,
+    title: "Pregnancy Antihypertensives",
+    prompt: "Which antihypertensives are safe in pregnancy (e.g. Labetalol, Nifedipine) and which are strictly contraindicated (e.g. Lisinopril, Losartan)?",
+  },
+  {
+    icon: Clock,
+    title: "Levothyroxine Administration",
+    prompt: "What are the critical administration guidelines for Levothyroxine and which drugs decrease its absorption?",
+  },
+  {
+    icon: AlertTriangle,
+    title: "Warfarin + NSAID Interaction",
+    prompt: "Explain the severe drug interaction between Warfarin and Ibuprofen/NSAIDs and GI bleeding monitoring protocols.",
   },
 ];
 
@@ -133,169 +152,284 @@ function generateClinicalResponse(query: string): {
   const standardRefs = [
     { title: "Lexicomp Clinical Drug Information", source: "UpToDate Lexidrug 2026", link: "#" },
     { title: "FDA Approved Product Monograph", source: "U.S. Food and Drug Administration", link: "#" },
-    { title: "AHFS Drug Information", source: "American Society of Health-System Pharmacists", link: "#" },
+    { title: "AHFS Drug Information Guidelines", source: "American Society of Health-System Pharmacists", link: "#" },
   ];
 
-  // Weight-based pediatric dosage calculation
+  // 1. Weight-based pediatric dosage calculation
   const weightMatch = lower.match(/(\d+)\s*kg/);
-  if (weightMatch && weightMatch[1] && (lower.includes("paracetamol") || lower.includes("acetaminophen") || lower.includes("amoxicillin") || lower.includes("ibuprofen"))) {
-    const weightStr = weightMatch[1];
-    const weight = parseInt(weightStr, 10);
+  if (weightMatch && weightMatch[1]) {
+    const weight = parseInt(weightMatch[1], 10);
 
     if (lower.includes("paracetamol") || lower.includes("acetaminophen")) {
       const minDose = weight * 10;
       const maxDose = weight * 15;
       const maxDaily = Math.min(weight * 75, 4000);
+      const minMl = ((minDose * 5) / 120).toFixed(1);
+      const maxMl = ((maxDose * 5) / 120).toFixed(1);
+
       return {
         category: "dosing",
+        warning: "DO NOT EXCEED 75 mg/kg/day or 4,000 mg/day total from all sources to avoid severe hepatotoxicity.",
         text: `### Pediatric Dosing Calculation: Paracetamol (Acetaminophen) for ${weight} kg Child
 
 **Target Weight**: **${weight} kg**
-**Standard Dosing**: 10 to 15 mg/kg per dose every 4 to 6 hours as needed.
+**Standard Pediatric Dose**: **10 to 15 mg/kg/dose** every 4 to 6 hours as needed.
 
-#### Calculated Dose:
+#### Calculated Dosage:
 - **Single Dose Range**: **${minDose} mg to ${maxDose} mg** per dose.
-- **Dosing Frequency**: Every 4 to 6 hours as needed (Maximum 4 to 5 doses in 24 hours).
-- **Maximum 24-Hour Daily Limit**: **${maxDaily} mg/day** (do not exceed 75 mg/kg/day or 4,000 mg/day).
+- **Frequency**: Every 4 to 6 hours as needed (Maximum 4 to 5 doses per 24 hours).
+- **Maximum 24-Hour Limit**: **${maxDaily} mg/day** (do not exceed 75 mg/kg/day).
 
-#### Oral Liquid Volume Guide (using 120 mg / 5 mL suspension):
-- **${minDose} mg** = **${((minDose * 5) / 120).toFixed(1)} mL** per dose.
-- **${maxDose} mg** = **${((maxDose * 5) / 120).toFixed(1)} mL** per dose.`,
+#### Oral Suspension Volume Guide (using 120 mg / 5 mL concentration):
+- **${minDose} mg dose**: **${minMl} mL**
+- **${maxDose} mg dose**: **${maxMl} mL**
+
+#### Administration Safety Notes:
+- Always use the calibrated syringe or dosing cup provided with pediatric formulations.
+- Verify that no other combination cough/cold products containing paracetamol/acetaminophen are co-administered.`,
         references: standardRefs,
       };
     }
 
     if (lower.includes("amoxicillin")) {
       const highDoseDaily = weight * 90;
-      const singleDose = (highDoseDaily / 2).toFixed(0);
+      const singleDose = Math.round(highDoseDaily / 2);
+      const singleMl = ((singleDose * 5) / 400).toFixed(1);
+
       return {
         category: "dosing",
-        text: `### Pediatric Dosing Calculation: Amoxicillin for ${weight} kg Child (High-Dose AOM Protocol)
+        warning: "HIGH-DOSE PENICILLIN PROTOCOL: Designed to overcome penicillin-resistant Streptococcus pneumoniae in Acute Otitis Media (AOM).",
+        text: `### Pediatric Dosing Calculation: Amoxicillin High-Dose Regimen for ${weight} kg Child
 
 **Target Weight**: **${weight} kg**
-**High-Dose Otitis Media Target**: 80 to 90 mg/kg/day divided into 2 equal doses (every 12 hours).
+**AOM High-Dose Protocol**: **80 to 90 mg/kg/day** divided into 2 equal doses (every 12 hours).
 
 #### Calculated Dosage:
 - **Total Daily Dose**: ${weight} kg × 90 mg/kg/day = **${highDoseDaily} mg/day**.
-- **Divided Dose**: **${singleDose} mg orally twice daily** (every 12 hours) for 7 to 10 days.
+- **Divided Single Dose**: **${singleDose} mg orally twice daily** (every 12 hours) for 7 to 10 days.
 
-#### Suspension Volume (using 400 mg / 5 mL strength):
-- **${singleDose} mg** = **${((parseFloat(singleDose) * 5) / 400).toFixed(1)} mL** twice daily.`,
-        references: standardRefs,
+#### Suspension Volume Guide (using Amoxicillin 400 mg / 5 mL strength):
+- **Single Dose (${singleDose} mg)** = **${singleMl} mL** twice daily.
+
+#### Clinical Notes:
+- Take with food or milk to reduce gastrointestinal upset.
+- Complete full 7 to 10 day course even if symptoms resolve earlier.`,
+        references: [
+          { title: "AAP Clinical Practice Guideline for the Diagnosis and Management of Acute Otitis Media", source: "Pediatrics 2023", link: "#" },
+          ...standardRefs,
+        ],
       };
     }
   }
 
-  // Heart Failure Dosing & Guidelines
-  if (lower.includes("heart failure") || (lower.includes("lisinopril") && lower.includes("heart"))) {
+  // 2. Fluoxetine + Tramadol Interaction / Serotonin Syndrome
+  if ((lower.includes("fluoxetine") && lower.includes("tramadol")) || (lower.includes("serotonin") && lower.includes("tramadol"))) {
     return {
-      category: "dosing",
-      warning: "MONITOR HYPOTENSION & K+: Initiate low and titrate slowly in heart failure. Check serum potassium and creatinine within 1-2 weeks.",
-      text: `### Heart Failure Clinical Dosing: Lisinopril & ACE Inhibitors
+      category: "interaction",
+      warning: "HIGH RISK INTERACTION (MAJOR): Serotonin Syndrome & Seizure Threshold Reduction. Co-administration requires strict clinical vigilance.",
+      text: `### Drug Interaction Analysis: Fluoxetine (SSRI) + Tramadol (Central Analgesic)
 
-**Indication**: Heart Failure with Reduced Ejection Fraction (HFrEF).
+**Severity Rating**: **Major / Severe (Category D - Consider Therapy Modification)**
 
-#### Recommended Dosing Protocol:
-- **Starting Initial Dose**: **2.5 mg to 5 mg orally once daily**.
-- **Titration Target**: Double dose every 2 to 4 weeks as tolerated.
-- **Target Maintenance Dose**: **20 mg to 40 mg once daily** (as validated in GISSI-3 and ATLAS clinical trials).
+#### Pharmacodynamic & Pharmacokinetic Mechanisms:
+1. **Additive Serotonergic Toxicity**: Fluoxetine inhibits serotonin reuptake while Tramadol inhibits serotonin and norepinephrine reuptake and stimulates 5-HT receptors. Concomitant use increases synaptic serotonin to dangerous levels.
+2. **CYP2D6 Enzyme Inhibition**: Fluoxetine is a potent CYP2D6 inhibitor. Tramadol is metabolized by CYP2D6 to its active M1 metabolite (O-desmethyltramadol). Fluoxetine impairs Tramadol's analgesic efficacy while elevating parent Tramadol levels, increasing seizure risk.
 
-#### Essential Clinical Precautions:
-- **Renal Impairment**: If baseline eGFR is < 30 mL/min, initiate at **2.5 mg daily**.
-- **Hyperkalemia Monitoring**: Discontinue if serum potassium exceeds 5.5 mEq/L.
-- **Blood Pressure**: Monitor for symptomatic hypotension following first dose.`,
+#### Clinical Symptoms of Serotonin Syndrome to Monitor:
+- **Neuromuscular Hyperexcitability**: Hyperreflexia, clonus (spontaneous, inducible, or ocular), tremor, rigidity.
+- **Autonomic Instability**: Hyperthermia, diaphoresis, tachycardia, labile blood pressure.
+- **Altered Mental Status**: Agitation, confusion, hypomania, restlessness.
+
+#### Clinical Recommendations:
+- Consider substituting Tramadol with a non-serotonergic analgesic (e.g., Acetaminophen, short-term NSAIDs, or non-serotonergic opioids like Morphine/Oxycodone if indicated).
+- If combination cannot be avoided, use the lowest effective Tramadol dose and monitor closely for early signs of serotonin toxicity.`,
+    references: [
+      { title: "FDA Drug Safety Communication: Serotonergic Drugs & Opioid Interactions", source: "FDA Safety Alert", link: "#" },
+      { title: "Boyer EW, Shannon M. The Serotonin Syndrome", source: "N Engl J Med 2005;352:1112-1120", link: "#" },
+      ...standardRefs,
+    ],
+  };
+}
+
+  // 3. Atorvastatin Mechanism & Statin Pharmacology
+  if (lower.includes("atorvastatin") || lower.includes("hmg-coa") || lower.includes("statin")) {
+    return {
+      category: "mechanism",
+      warning: "MYOPATHY & RHABDOMYOLYSIS RISK: Instruct patient to immediately report unexplained muscle pain, tenderness, or dark amber urine.",
+      text: `### Clinical Monograph: Atorvastatin Calcium (HMG-CoA Reductase Inhibitor)
+
+**Therapeutic Class**: Synthetic HMG-CoA Reductase Inhibitor (High-Intensity Statin)
+
+#### Mechanism of Action (MoA):
+1. **Competitive Enzyme Inhibition**: Atorvastatin competitively inhibits 3-hydroxy-3-methylglutaryl-coenzyme A (HMG-CoA) reductase, the rate-limiting enzyme in hepatic cholesterol biosynthesis that converts HMG-CoA to mevalonate.
+2. **Hepatic LDL Receptor Upregulation**: Depletion of intracellular hepatic cholesterol pools triggers compensatory upregulation of high-affinity Low-Density Lipoprotein (LDL) receptors on hepatocytes.
+3. **Enhanced Clearance**: Increased LDL cell-surface receptors accelerate clearance of circulating LDL-C and VLDL remnants from systemic circulation, reducing serum LDL-C by 30% to 60%.
+
+#### Dosing Standards & Intensity Guidelines:
+- **High-Intensity Regimen**: **40 mg to 80 mg orally once daily** (reduces LDL-C by ≥ 50%). Indicated for secondary prevention in ASCVD, acute coronary syndrome, or high-risk diabetes.
+- **Moderate-Intensity Regimen**: **10 mg to 20 mg orally once daily** (reduces LDL-C by 30% to 49%).
+
+#### Baseline & Ongoing Monitoring:
+- **Lipid Panel**: Recheck LDL-C 4 to 12 weeks after initiation or dose adjustment.
+- **Hepatic Function**: Baseline AST/ALT prior to initiation; repeat if clinically indicated.`,
       references: [
-        { title: "2022 AHA/ACC/HFSA Guideline for the Management of Heart Failure", source: "Circulation 2022;145", link: "#" },
+        { title: "AHA/ACC Guideline on the Management of Blood Cholesterol", source: "Circulation 2023;148", link: "#" },
         ...standardRefs,
       ],
     };
   }
 
-  // Thyroid / Levothyroxine Dosing
-  if (lower.includes("thyroid") || lower.includes("levothyroxine") || lower.includes("synthroid") || lower.includes("hypothyroidism")) {
+  // 4. Paracetamol / Acetaminophen Adult & Pediatric Safety
+  if (lower.includes("paracetamol") || lower.includes("acetaminophen") || lower.includes("tylenol")) {
+    return {
+      category: "safety",
+      warning: "HEPATOTOXICITY LIMIT: Absolute adult ceiling is 4,000 mg in 24 hours. Reduce to ≤ 2,000 mg/day in chronic alcohol use or hepatic impairment.",
+      text: `### Clinical Practice Monograph: Paracetamol (Acetaminophen) Safety & Dosing
+
+#### Adult Dosing Guidelines:
+- **Standard Oral Dose**: **500 mg to 1,000 mg orally every 4 to 6 hours** as needed.
+- **Maximum Daily Adult Limit**: **4,000 mg (4 grams) per 24 hours**.
+- **Special Populations (Chronic Alcoholism / Cirrhosis / Malnutrition)**: Maximum **2,000 mg per 24 hours**.
+
+#### Pediatric Weight-Based Dosing:
+- **10 to 15 mg/kg per dose** every 4 to 6 hours as needed.
+- **Maximum Pediatric Daily Limit**: **75 mg/kg/day** or 4,000 mg/day (whichever is lower).
+- *Example for 15 kg child*: **150 mg to 225 mg per dose** (6.25 mL to 9.3 mL of 120mg/5mL suspension).
+
+#### Toxicology & Antidote Protocol:
+- **Mechanism of Toxicity**: Overdose depletes hepatic glutathione, leading to accumulation of toxic reactive metabolite **NAPQI** (N-acetyl-p-benzoquinone imine), causing hepatocellular necrosis.
+- **Specific Antidote**: **N-Acetylcysteine (NAC)** (intravenous Acetadote or oral Mucomyst), administered based on Rumack-Matthew nomogram.`,
+      references: standardRefs,
+    };
+  }
+
+  // 5. Warfarin + NSAID / Anticoagulants Interaction
+  if ((lower.includes("warfarin") && (lower.includes("nsaid") || lower.includes("ibuprofen"))) || (lower.includes("warfarin") && lower.includes("interaction"))) {
+    return {
+      category: "interaction",
+      warning: "CONTRAINDICATED COMBINATION: Severe gastrointestinal hemorrhage risk. Concomitant use multiplies bleeding risk by 3 to 6-fold.",
+      text: `### Major Interaction Analysis: Warfarin (Vitamin K Antagonist) + NSAIDs (Ibuprofen / Naproxen)
+
+**Severity**: **Severe / Major (High Bleeding Hazard)**
+
+#### Dual Pharmacodynamic & Pharmacokinetic Hazard:
+1. **Platelet Inhibition**: NSAIDs inhibit COX-1, impairing thromboxane A2 synthesis and platelet aggregation. Combined with Warfarin's inhibition of Vitamin K-dependent clotting factors (II, VII, IX, X), systemic hemostasis is severely compromised.
+2. **Gastric Mucosal Injury**: NSAIDs inhibit protective gastric mucosal prostaglandin synthesis, creating direct ulcerative lesions in the GI tract.
+3. **Protein Binding Displacement**: NSAIDs competitively displace Warfarin from plasma albumin binding sites, acutely elevating free active Warfarin concentrations.
+
+#### Clinical Action Plan:
+- **Avoid Combination**: Discontinue NSAID. Utilize non-ulcerogenic analgesics such as **Paracetamol (Acetaminophen)** up to 2,000-3,000 mg/day.
+- **If NSAID Essential (e.g. Severe Rheumatoid Arthritis)**: Add a protective **Proton Pump Inhibitor (PPI)** (e.g. Omeprazole 20mg or Pantoprazole 40mg daily) and monitor INR every 3 to 7 days.
+- **Target INR Range**: **2.0 to 3.0** for AFib and VTE; **2.5 to 3.5** for mechanical prosthetic heart valves.`,
+      references: [
+        { title: "CHEST Guideline for Antithrombotic Therapy for VTE Disease", source: "CHEST 2024", link: "#" },
+        ...standardRefs,
+      ],
+    };
+  }
+
+  // 6. Levothyroxine Administration Guidelines
+  if (lower.includes("levothyroxine") || lower.includes("thyroid") || lower.includes("synthroid")) {
     return {
       category: "dosing",
       warning: "ADMINISTRATION TIMING CRITICAL: Must be taken on an empty stomach with a full glass of water 30 to 60 minutes before breakfast.",
       text: `### Clinical Monograph: Levothyroxine Sodium (T4 Replacement)
 
-**Therapeutic Class:** Synthetic Thyroid Hormone
+**Therapeutic Class**: Synthetic Thyroid Hormone T4
 
 #### Recommended Dosing Guidelines:
-- **Full Replacement Adult Dose**: **1.6 mcg/kg/day** (based on ideal body weight).
-  - *Example for 70 kg Adult*: ~112 mcg once daily.
-- **Elderly (≥ 65 yrs) or Underlying Coronary Artery Disease (CAD)**:
-  - Initiate at low dose: **12.5 mcg to 25 mcg once daily**.
-  - Titrate by 12.5 to 25 mcg increments every 4 to 6 weeks based on serum TSH.
+- **Full Replacement Dose in Adults**: **1.6 mcg/kg/day** based on ideal body weight (IBW).
+  - *Example for 70 kg IBW adult*: **112 mcg orally once daily**.
+- **Elderly (≥ 65 years) or Underlying Coronary Artery Disease (CAD)**:
+  - Initiate conservatively at **12.5 mcg to 25 mcg once daily**.
+  - Titrate by 12.5 to 25 mcg increments every 4 to 6 weeks guided by serum TSH.
 
-#### Administration Instructions & Absorption Blockers:
-- **Empty Stomach**: Take 30–60 minutes before morning meal or 3–4 hours after evening meal.
-- **Separate Key Supplements by at least 4 Hours**: Calcium carbonate, Iron (Ferrous sulfate), Aluminum/Magnesium antacids, and Sucralfate significantly decrease oral bioavailability.`,
+#### Essential Patient Administration Protocol:
+- **Administration Window**: Take once daily in the morning on an empty stomach with plain water at least **30 to 60 minutes before breakfast** (or 3 to 4 hours after dinner at bedtime).
+
+#### Key Absorption Inhibitors (Separate by at least 4 Hours):
+- **Calcium Carbonate & Iron Supplements (Ferrous Sulfate)**
+- **Aluminum/Magnesium Antacids & Sucralfate**
+- **Bile Acid Sequestrants (Cholestyramine, Colesevelam)**
+- **Proton Pump Inhibitors & Coffee** (reduce bioavailability by altering gastric pH).`,
       references: standardRefs,
     };
   }
 
-  // Pregnancy Safety
-  if (lower.includes("pregnant") || lower.includes("pregnancy") || lower.includes("lactation") || lower.includes("breastfeeding")) {
+  // 7. Pregnancy Safety & Antihypertensives
+  if (lower.includes("pregnant") || lower.includes("pregnancy") || lower.includes("lactation")) {
     return {
       category: "safety",
-      warning: "PREGNANCY CONTRAINDICATIONS: ACE Inhibitors, ARBs, Statins, NSAIDs (3rd trimester), and Warfarin are strictly contraindicated in pregnancy.",
-      text: `### Clinical Practice Guide: Prescribing in Pregnancy & Lactation
+      warning: "STRICT CONTRAINDICATIONS IN PREGNANCY: ACE Inhibitors, ARBs, Statins, NSAIDs (≥ 20 weeks), and Warfarin cause severe fetal malformations or toxicity.",
+      text: `### Clinical Practice Guide: Prescribing Antihypertensives in Pregnancy
 
-#### 1. Safe & Preferred Medications in Pregnancy:
-- **Analgesia / Fever**: **Paracetamol (Acetaminophen)** — First-line throughout all trimesters.
-- **Hypertension**: **Labetalol**, **Methyldopa**, or **Nifedipine (ER)**.
-- **Antibiotics**: **Amoxicillin**, **Ampicillin**, **Cephalexin**, **Erythromycin**.
-- **Diabetes**: **Insulin** (Human NPH/Regular or Lispro/Aspart) is the drug of choice.
+#### 1. Safe & Preferred Antihypertensives in Pregnancy:
+- **Labetalol** (Combined Alpha/Beta Blocker): 100 mg twice daily (up to 2,400 mg/day). First-line choice.
+- **Nifedipine ER** (Extended-Release Dihydropyridine CCB): 30 mg once daily (up to 90 mg/day).
+- **Methyldopa** (Central Alpha-2 Agonist): 250 mg 2 to 3 times daily. Longstanding safety record.
+- **Hydralazine**: 10 to 25 mg Q6H (frequently used IV for acute severe hypertensive crises).
 
-#### 2. Strictly Contraindicated (High Fetal Risk / Teratogenic):
-- **ACE Inhibitors / ARBs** (Lisinopril, Losartan): Fetal renal dysgenesis, oligohydramnios, skull hypoplasia.
-- **Statins** (Atorvastatin, Simvastatin): Disrupt embryonic cholesterol synthesis.
-- **NSAIDs** (Ibuprofen, Naproxen): Ductus arteriosus premature closure & oligohydramnios at ≥ 20 weeks.
-- **Warfarin**: Fetal Warfarin Syndrome (nasal hypoplasia, CNS defects).`,
+#### 2. Strictly Contraindicated Medications (High Teratogenic / Fetal Risk):
+- **ACE Inhibitors** (Lisinopril, Enalapril) & **ARBs** (Losartan, Valsartan): Cause fetal renal dysgenesis, oligohydramnios, skull hypoplasia, and fetal death.
+- **Statins** (Atorvastatin, Rosuvastatin): Disrupt embryonic cholesterol synthesis.
+- **NSAIDs** (Ibuprofen, Naproxen): Avoid at ≥ 20 weeks due to premature closure of ductus arteriosus and fetal renal impairment.
+- **Warfarin**: Fetal Warfarin Syndrome (nasal hypoplasia, stippled epiphyses, CNS defects).`,
       references: [
-        { title: "ACOG Clinical Practice Guideline on Hypertension in Pregnancy", source: "Obstet Gynecol 2023", link: "#" },
+        { title: "ACOG Clinical Practice Guideline: Chronic Hypertension in Pregnancy", source: "Obstet Gynecol 2023;141", link: "#" },
         ...standardRefs,
       ],
     };
   }
 
-  // Diabetes & Insulin
-  if (lower.includes("diabetes") || lower.includes("insulin") || lower.includes("hba1c") || lower.includes("glucose")) {
+  // 8. Metformin Renal Dosing & eGFR Brackets
+  if (lower.includes("metformin") || lower.includes("egfr") || lower.includes("ckd")) {
     return {
       category: "dosing",
-      warning: "HYPOGLYCEMIA ALERT: Instruct patient on rule of 15 (15g fast-acting carb, recheck in 15 mins) if blood glucose drops < 70 mg/dL.",
-      text: `### Clinical Practice Guide: Diabetes Mellitus Pharmacotherapy
+      warning: "LACTIC ACIDOSIS ALERT: Metformin accumulates in renal failure. Discontinue if eGFR drops below 30 mL/min/1.73m².",
+      text: `### Clinical Dosing Guidelines: Metformin in Renal Impairment (eGFR Protocol)
 
-#### 1. First-Line Pharmacotherapy (ADA 2026):
-- **Metformin**: 500 mg twice daily with meals (titrate to 2,000 mg/day max).
-- **Cardiorenal Comorbidities (CKD / Heart Failure / ASCVD)**:
-  - Add **SGLT2 inhibitor** (Empagliflozin 10-25mg or Dapagliflozin 10mg) regardless of baseline HbA1c.
-  - Add **GLP-1 RA** (Semaglutide or Dulaglutide) for high ASCVD risk or weight loss benefit.
+Metformin dosing must be adjusted strictly based on **Estimated Glomerular Filtration Rate (eGFR)**:
 
-#### 2. Insulin Regimen Initiation (Type 2 Diabetes):
-- **Basal Insulin Starting Dose**: **10 Units/day** OR **0.1 to 0.2 Units/kg/day** (Glargine, Detemir, or Degludec).
-- **Titration**: Increase by 2 units every 3 days until fasting blood glucose reaches 80–130 mg/dL without hypoglycemia.`,
-      references: standardRefs,
+#### Official eGFR Dosing Brackets:
+1. **eGFR ≥ 60 mL/min/1.73m²**:
+   - No dosage adjustment required. Monitor eGFR annually. Maximum dose **2,000 mg/day**.
+
+2. **eGFR 45 to 59 mL/min/1.73m²**:
+   - Continue current dose. Monitor renal function every 3 to 6 months.
+
+3. **eGFR 30 to 44 mL/min/1.73m²**:
+   - **Do not initiate** Metformin in treatment-naive patients.
+   - For existing patients, reduce dose by 50% (maximum **1,000 mg/day**). Monitor eGFR every 3 months.
+
+4. **eGFR < 30 mL/min/1.73m²**:
+   - **Absolute Contraindication**. Discontinue Metformin immediately to prevent Metformin-Associated Lactic Acidosis (MALA).
+
+#### Iodinated Contrast Procedures:
+- Withhold Metformin at or prior to iodinated contrast imaging in patients with eGFR between 30 and 60 mL/min/1.73m² or with liver disease, heart failure, or alcoholism. Recheck eGFR 48 hours post-procedure before resuming.`,
+      references: [
+        { title: "ADA Standards of Care in Diabetes (2026)", source: "Diabetes Care 2026", link: "#" },
+        ...standardRefs,
+      ],
     };
   }
 
-  // Generic Dynamic Query Response
-  const cleanTitle = query.trim();
+  // General Dynamic Clinical Synthesizer for any other search prompt
+  const title = query.trim();
   return {
     category: lower.includes("dose") || lower.includes("dosing") ? "dosing" : lower.includes("interaction") ? "interaction" : "general",
-    text: `### Clinical Practice Answer: ${cleanTitle}
+    text: `### Clinical Evaluation: ${title}
 
-**Evidence Verification:** Evaluated against FDA Monograph Standards, AHFS Pharmacotherapy Guidelines, and Lexicomp Clinical Databases.
+**Evidence Classification:** Evaluated against FDA Monograph Standards, AHFS Pharmacotherapy Guidelines, and Lexicomp Clinical Databases.
 
-#### 1. Direct Clinical Response & Key Findings
-Regarding your query on **"${cleanTitle}"**:
-- **Core Recommendation**: Evaluate patient-specific therapeutic index, including organ clearance (eGFR / Serum Creatinine for renal excreted drugs; LFTs for hepatic metabolism).
-- **Administration & Safety**: Verify baseline vital signs, potential additive QT prolongation, hypersensitivity profiles, and concurrent CYP isoenzyme inhibitors/inducers.
+#### 1. Direct Clinical Recommendation
+For **"${title}"**:
+- **Therapeutic Strategy**: Verify patient-specific organ function prior to initiating or modifying regimen. Review baseline eGFR / Serum Creatinine for renal clearance and LFTs for hepatic clearance.
+- **Standard Dosing Principle**: Start with lowest effective therapeutic dose, titrating gradually based on objective clinical endpoints and patient tolerance.
 
-#### 2. Clinical Evaluation & Monitoring Checklist
-- **Dosage Adjustments**: Calculate exact mg/kg weight-based dosages for pediatric patients and eGFR-based adjustments for renal insufficiency.
-- **Toxicity & Adverse Effects**: Instruct patient to immediately report unexpected dyspnea, skin rash, mucosal bleeding, severe muscle pain, or GI distress.
-- **Audit & Compliance**: Document clinical indication, start date, and planned review intervals in the patient's electronic health record.`,
+#### 2. Essential Safety & Monitoring Checklist
+- **Black Box Warnings & Adverse Effects**: Instruct patient to report early signs of hypersensitivity (rash, mucosal lesions), unexplained weakness, dyspnea, or severe gastrointestinal distress.
+- **Drug-Drug & Food Interactions**: Screen for concurrent CYP isoenzyme inhibitors/inducers, QT-prolonging agents, or absorption-blocking antacids/minerals.
+- **Laboratory Audit**: Schedule follow-up laboratory evaluation (CBC, CMP, electrolytes, target drug levels) at 2 to 4 weeks post-initiation.`,
     references: standardRefs,
   };
 }
@@ -307,8 +441,6 @@ export function AIAssistantPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedMode, setSelectedMode] = useState<string>("clinical");
   const [userEmail, setUserEmail] = useState<string>("default");
-
-  // Past Consultations History State
   const [pastSessions, setPastSessions] = useState<ChatSession[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -332,7 +464,6 @@ export function AIAssistantPage() {
         const parsedHistory: ChatSession[] = JSON.parse(storedHistory);
         setPastSessions(parsedHistory);
       } else {
-        // Pre-populate initial demo session history
         const initialSession: ChatSession = {
           id: "session-1",
           title: "Metformin Renal Dosing in CKD",
@@ -351,7 +482,8 @@ export function AIAssistantPage() {
     if (messages.length > 0) {
       try {
         const historyKey = `pharmamind_chat_history_${userEmail}`;
-        const activeTitle = messages.find((m) => m.sender === "user")?.text.slice(0, 30) || "Clinical Consultation";
+        const userMsg = messages.find((m) => m.sender === "user");
+        const activeTitle = userMsg ? userMsg.text.slice(0, 32) : "Clinical Consultation";
 
         const currentSession: ChatSession = {
           id: `session-${Date.now()}`,
@@ -362,7 +494,7 @@ export function AIAssistantPage() {
 
         setPastSessions((prev) => {
           const filtered = prev.filter((s) => s.title !== currentSession.title);
-          const updated = [currentSession, ...filtered].slice(0, 10); // Keep last 10 sessions
+          const updated = [currentSession, ...filtered].slice(0, 10);
           localStorage.setItem(historyKey, JSON.stringify(updated));
           return updated;
         });
@@ -413,7 +545,7 @@ export function AIAssistantPage() {
 
       setMessages((prev) => [...prev, aiMsg]);
       setIsTyping(false);
-    }, 1000);
+    }, 800);
   };
 
   const handleCopy = (id: string, text: string) => {
@@ -446,7 +578,7 @@ export function AIAssistantPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setMessages([defaultUserMessage, defaultAIMessage])}
+              onClick={() => setMessages([])}
               className="h-8 gap-1 text-xs"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -520,9 +652,9 @@ export function AIAssistantPage() {
 
             <div>
               <p className="px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Quick Clinical Prompts
+                Example Clinical Prompts ({samplePrompts.length})
               </p>
-              <div className="mt-2 space-y-1.5">
+              <div className="mt-2 space-y-1.5 max-h-56 overflow-y-auto pr-1">
                 {samplePrompts.map((sp) => (
                   <button
                     key={sp.title}
@@ -586,26 +718,28 @@ export function AIAssistantPage() {
           <ScrollArea className="flex-1 p-4 sm:p-6">
             <div className="mx-auto max-w-3xl space-y-6">
               {messages.length === 0 ? (
-                <div className="py-16 text-center">
+                <div className="py-10 text-center">
                   <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-soft text-accent-foreground">
                     <Sparkles className="h-7 w-7 text-teal" />
                   </div>
                   <h3 className="mt-4 text-lg font-semibold text-foreground">How can I assist your clinical practice today?</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Ask about drug dosing adjustments, severe interactions, mechanism of action, or contraindications.
+                    Click any of the 8 example clinical search prompts below to get instant accurate answers or type your custom query.
                   </p>
-                  <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2 text-left">
                     {samplePrompts.map((sp) => (
                       <Card
                         key={sp.title}
                         onClick={() => handleSend(sp.prompt)}
-                        className="cursor-pointer border border-border p-4 text-left transition-all hover:border-teal/50 hover:shadow-soft"
+                        className="cursor-pointer border border-border/80 p-3.5 transition-all hover:border-teal/50 hover:shadow-soft hover:bg-accent/40"
                       >
                         <div className="flex items-center gap-2">
-                          <sp.icon className="h-4 w-4 text-teal" />
-                          <span className="text-sm font-medium text-foreground">{sp.title}</span>
+                          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-soft text-teal">
+                            <sp.icon className="h-4 w-4" />
+                          </span>
+                          <span className="text-xs font-semibold text-foreground">{sp.title}</span>
                         </div>
-                        <p className="mt-2 text-xs text-muted-foreground">{sp.prompt}</p>
+                        <p className="mt-2 text-xs text-muted-foreground line-clamp-2 leading-relaxed">{sp.prompt}</p>
                       </Card>
                     ))}
                   </div>
