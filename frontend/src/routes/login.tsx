@@ -60,23 +60,30 @@ export function LoginPage() {
     setActiveSession(null);
   };
 
+  const validateEmail = (emailStr: string) => {
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return emailRegex.test(emailStr.trim());
+  };
+
   const handleInitialLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (!email || !email.includes("@")) {
-      setError("Please enter a valid work email address.");
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail || !validateEmail(trimmedEmail)) {
+      setError("Invalid Email Format. Please enter a valid work email address (e.g. name@hospital.org or user@domain.com).");
       return;
     }
     if (!password || password.length < 4) {
-      setError("Please enter your password.");
+      setError("Please enter your account password.");
       return;
     }
 
     setLoading(true);
 
     try {
-      const res = await loginUser(email.trim(), password);
+      const res = await loginUser(trimmedEmail, password);
       setLoading(false);
 
       if (res.error) {
@@ -84,11 +91,11 @@ export function LoginPage() {
         return;
       }
 
-      setOtpSuccessMessage(`A 6-digit verification code has been dispatched to ${email}. Please check your inbox.`);
+      setOtpSuccessMessage(`A 6-digit One-Time Password (OTP) has been dispatched to ${trimmedEmail}.`);
       setShowOtpModal(true);
     } catch {
       setLoading(false);
-      setOtpSuccessMessage(`A 6-digit verification code has been sent to ${email}.`);
+      setOtpSuccessMessage(`A 6-digit One-Time Password (OTP) has been dispatched to ${trimmedEmail}.`);
       setShowOtpModal(true);
     }
   };
@@ -98,14 +105,14 @@ export function LoginPage() {
     setOtpError("");
 
     if (!otpInput || otpInput.trim().length !== 6) {
-      setOtpError("Please enter the 6-digit verification code received in your email.");
+      setOtpError("Please enter the 6-digit verification code sent to your email.");
       return;
     }
 
     setOtpLoading(true);
 
     try {
-      const res = await verifyOtp(email, otpInput.trim());
+      const res = await verifyOtp(email.trim(), otpInput.trim());
       setOtpLoading(false);
 
       if (res.error) {
@@ -116,7 +123,7 @@ export function LoginPage() {
       // Save user session in localStorage
       const sessionData = {
         name: res.user?.name || (email.split("@")[0] ?? "User").toUpperCase(),
-        email: email,
+        email: email.trim(),
         role: res.user?.role || "Clinical Pharmacist",
         token: res.token || "jwt_token_" + Date.now(),
         isVerified: true,
@@ -137,9 +144,9 @@ export function LoginPage() {
 
   const handleResendOtp = async () => {
     setOtpError("");
-    setOtpSuccessMessage("Resending verification code to email...");
-    await sendOtp(email);
-    setOtpSuccessMessage(`New 6-digit code sent to ${email}. Check your inbox.`);
+    setOtpSuccessMessage("Dispatching new 6-digit verification code to your email...");
+    await sendOtp(email.trim());
+    setOtpSuccessMessage(`New 6-digit OTP code sent to ${email.trim()}. Check your inbox.`);
   };
 
   return (

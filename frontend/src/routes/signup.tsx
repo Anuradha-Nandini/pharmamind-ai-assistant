@@ -43,16 +43,23 @@ export function SignupPage() {
   const [otpLoading, setOtpLoading] = useState(false);
   const [demoOtp, setDemoOtp] = useState<string | null>(null);
 
+  const validateEmail = (emailStr: string) => {
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return emailRegex.test(emailStr.trim());
+  };
+
   const handleInitialSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    const trimmedEmail = email.trim();
 
     if (!fullName.trim()) {
       setError("Please enter your full name.");
       return;
     }
-    if (!email || !email.includes("@")) {
-      setError("Please enter a valid work email address.");
+    if (!trimmedEmail || !validateEmail(trimmedEmail)) {
+      setError("Invalid Email Format. Please enter a valid work email address (e.g. name@hospital.org or user@domain.com).");
       return;
     }
     if (!password || password.length < 6) {
@@ -63,7 +70,7 @@ export function SignupPage() {
     setLoading(true);
 
     try {
-      const res = await signupUser(fullName.trim(), email.trim(), password, role);
+      const res = await signupUser(fullName.trim(), trimmedEmail, password, role);
       setLoading(false);
 
       if (res.error) {
@@ -71,11 +78,6 @@ export function SignupPage() {
         return;
       }
 
-      if (res.demoOtp) {
-        setDemoOtp(res.demoOtp);
-      }
-
-      // Open OTP Verification Modal
       setShowOtpModal(true);
     } catch {
       setLoading(false);
@@ -88,14 +90,14 @@ export function SignupPage() {
     setOtpError("");
 
     if (!otpInput || otpInput.trim().length !== 6) {
-      setOtpError("Please enter a valid 6-digit verification code.");
+      setOtpError("Please enter the 6-digit verification code sent to your email.");
       return;
     }
 
     setOtpLoading(true);
 
     try {
-      const res = await verifyOtp(email, otpInput.trim());
+      const res = await verifyOtp(email.trim(), otpInput.trim());
       setOtpLoading(false);
 
       if (res.error) {
@@ -105,8 +107,8 @@ export function SignupPage() {
 
       // Save user session to localStorage
       const userSession = {
-        name: fullName,
-        email: email,
+        name: fullName.trim(),
+        email: email.trim(),
         role: role,
         token: res.token || "jwt_session_" + Date.now(),
         isVerified: true,
@@ -114,6 +116,7 @@ export function SignupPage() {
       };
 
       localStorage.setItem("pharmamind_user_session", JSON.stringify(userSession));
+      window.dispatchEvent(new Event("pharmamind_auth_change"));
       setShowOtpModal(false);
 
       // Redirect to AI Assistant
